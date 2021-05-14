@@ -1,0 +1,25 @@
+# Ignore all the following extensions
+*.log
+*.pyc
+
+# Ignore the following directories
+.venv/
+
+globalcache/.pylint.d/
+.pylint.d/
+
+# Ignore project files
+.spyproject/
+
+**/.spyproject/*
+**/__pycache__/*
+**/__pycache__/
+
+.idea/
+.pytest_cache/
+
+
+# Ignore setup build files
+dist/
+build/
+*egg-info/
