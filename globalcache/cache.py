@@ -240,6 +240,6 @@ class CacheVar:
         
         
     def __bool__(self):
-        """Return self.is_cache."""
+        """Return self.is_cached."""
         return self.is_cached
         
