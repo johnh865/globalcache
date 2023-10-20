@@ -42,6 +42,13 @@ Decorate an expensive function:
     Note that args & kwargs must be hashable. 
 
 
+Reset the cache of a function (force delete old values):
+    
+    >>> @cache.decorate_reset
+    >>> def func1(*args, **kwargs):
+    >>>    ....
+
+
 Use settings to modify global configuration:
     
     >>> from globalcache import Settings

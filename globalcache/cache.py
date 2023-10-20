@@ -172,6 +172,23 @@ class Cache:
                 out = var.get()
             return out
         return func
+    
+    
+    def decorate_reset(self, fn) -> Callable:
+        """Force recalulate the value of the expension function."""
+        module = inspect.getsourcefile(fn)
+        name = fn.__name__        
+        
+        def func(*args, **kwargs):
+            var = CacheVar(self, module, name, args, kwargs, 
+                           size_limit=self.size_limit)
+            out = fn(*args, **kwargs)
+            var.reset()
+            var.set(out)
+            return out
+        return func
+    
+
                 
     
     def reset(self):
@@ -237,6 +254,10 @@ class CacheVar:
         """
         self.fcache[self.key] = data
         return data
+    
+    def reset(self):
+        if self.key in self.fcache:
+            del self.fcache[self.key]
         
         
     def __bool__(self):
