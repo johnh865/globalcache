@@ -3,6 +3,8 @@
 import sys
 from io import StringIO 
 from globalcache import Cache, Settings
+import logging
+
 
 class Capturing(list):
     """Capture stdout.
@@ -31,6 +33,12 @@ def expensive_func2():
     for ii in range(5):
         print('Ouch', ii)
     return 20.0
+
+
+def expensive_func3(a : str):
+    """Dummy function, prints input."""
+    print(a)
+    return a*2
 
 
 
@@ -168,18 +176,53 @@ def test_settings_disable():
     return
     
 
+def test_arguments():
+    c = Cache(globals(), reset=True)
+    
+    decorator = c.decorate(size_limit=1000)
+    func_cached = decorator(expensive_func3)
+    
+    logger.info('STEP 1: FIRST SET VALUES')
+    with Capturing() as output1:
+        func_cached('a')        
+        func_cached('b')    
+    logger.info('output1:')         
+    logger.info(output1)
+    assert output1[0] == 'a'
+    assert output1[1] == 'b'
+    
+    logger.info('STEP 2: RETRIEVE')
+    with Capturing() as output2:
+        out1 = func_cached('a')        
+        out2 = func_cached('b')     
+        out3 = func_cached('c')
+    logger.info('output2:')         
+    logger.info(output2)
+    logger.info('....')
+    # breakpoint()
+    assert output2[0] == 'c'
+    assert out1 == 'aa'
+    assert out2 == 'bb'
+    assert out3 == 'cc'
+    
 
-
+    # assert output2[0] == ''
+    # assert output2[1] == ''
+    
 
 if __name__ == '__main__':
-    test_caller()
-    test_decorator()    
-    test_repeated_names()
-    test_arg_cache()
-    test_default_cache_size()
-    test_settings_size()
-    test_settings_disable()
-    
+    # test_caller()
+    # test_decorator()    
+    # test_repeated_names()
+    # test_arg_cache()
+    # test_default_cache_size()
+    # test_settings_size()
+    # test_settings_disable()
+    # logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    test_arguments()
     
         
     

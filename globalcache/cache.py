@@ -3,7 +3,10 @@ import inspect
 import os
 from typing import Callable
 from collections import OrderedDict
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 GLOBAL_CACHE_NAME = os.environ.get('GLOBAL_CACHE_NAME', 
                                    '__GLOBAL_CACHE__')
@@ -139,7 +142,7 @@ class Cache:
         return CacheVar(self, dictname, name, args, kwargs, size_limit)
     
     
-    def decorate(self, fn) -> Callable:
+    def decorate(self, fn=None, size_limit=None, reset=False) -> Callable:
         """Decorate an expensive function to cache the result. 
 
         Parameters
@@ -147,7 +150,7 @@ class Cache:
         fn : Callable
             Function to decorate.
         size_limit : int, optional
-            Max cache size
+            Max cache size (keyword argument not supported)
 
         Returns
         -------
@@ -155,13 +158,26 @@ class Cache:
         """
         if callable(fn):
             return self._sub_decorate(fn, size_limit=self.size_limit)
+        
+        elif reset:
+            return self.decorate_reset
+ 
+        
+        elif size_limit is not None:
+            def func(fn):
+                return self._sub_decorate(fn, size_limit=size_limit)
+            return func
+        
         else:
-            return self._sub_decorate(fn[0], fn[1])
-    
-                
+            raise ValueError('Wrong keyword argument set')
+        
+                            
     def _sub_decorate(self, fn: Callable, size_limit: int):
         module = inspect.getsourcefile(fn)
-        name = fn.__name__
+        name = get_name(fn)
+        # name = fn.__name__
+
+
         def func(*args, **kwargs):
             var = CacheVar(self, module, name, args, kwargs, 
                            size_limit=size_limit)
@@ -174,12 +190,14 @@ class Cache:
         return func
     
     
-    def decorate_reset(self, fn) -> Callable:
+    def decorate_reset(self, fn: Callable) -> Callable:
         """Force recalulate the value of the expension function."""
         module = inspect.getsourcefile(fn)
-        name = fn.__name__        
+        name = get_name(fn)
+        # name = fn.__name__        
         
         def func(*args, **kwargs):
+            logger.debug('Resetting %s', name)
             var = CacheVar(self, module, name, args, kwargs, 
                            size_limit=self.size_limit)
             out = fn(*args, **kwargs)
@@ -189,10 +207,24 @@ class Cache:
         return func
     
 
-                
-    
     def reset(self):
         self.cache = {}
+        
+        
+def get_name(fn : Callable) -> str:
+    """Create a name for a callable function."""
+    name = fn.__name__
+    while True:
+        try:
+            parent = fn.__self__
+            fn = parent.__class__
+            parent_name = fn.__name__
+            name = parent_name + '.' + name
+        except AttributeError:
+            break
+    return name
+        
+            
         
 
 class CacheVar:
@@ -211,6 +243,9 @@ class CacheVar:
             kwargs = frozenset(kwargs.items())
         
         self.key = (name, args, kwargs)
+        self.name = name
+        self._cache = cache
+        
         
         
     def get(self):
@@ -223,6 +258,7 @@ class CacheVar:
         """
         key = self.key
         try:
+            logger.debug('Retrieving %s from cache', key)
             return self.fcache[key]
         except KeyError:
             raise ValueError('Variable not yet set.')
@@ -233,6 +269,7 @@ class CacheVar:
         """Check whether a value has been cached."""
         if Settings.DISABLE:
             return False
+        # breakpoint()
         return self.key in self.fcache
     
     
@@ -252,6 +289,7 @@ class CacheVar:
         data : 
             Return input argument.
         """
+        logger.debug('Saving %s into cache', self.key)
         self.fcache[self.key] = data
         return data
     
@@ -262,5 +300,6 @@ class CacheVar:
         
     def __bool__(self):
         """Return self.is_cached."""
+        
         return self.is_cached
         
