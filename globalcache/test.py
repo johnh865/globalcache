@@ -40,6 +40,16 @@ def expensive_func3(a : str):
     print(a)
     return a*2
 
+def expensive_func4(i: int):
+    """Dummy function, prints input."""
+    print(i)
+    return i*10
+
+
+def expensive_func5(i: int):
+    """Dummy function, prints input."""
+    print(i)
+    return i*100
 
 
 def caller1():
@@ -206,9 +216,37 @@ def test_arguments():
     assert out3 == 'cc'
     
 
-    # assert output2[0] == ''
-    # assert output2[1] == ''
+def test_arguments2():
+    cache = Cache(globals(), reset=True)
+    decorator = cache.decorate(size_limit=50)
+    decorator2 = cache.decorate(size_limit=5)
     
+    
+    func_cached = decorator(expensive_func4)
+    func_cached2 = decorator2(expensive_func5)
+    
+    with Capturing() as output1:
+        for i in range(50):
+            func_cached(i)
+    logger.info('....')
+    
+    with Capturing() as output2:
+        for i in range(60):
+            out = func_cached(i)
+    logger.info('....')
+            
+            
+    with Capturing() as output3:
+        for i in range(50):
+            func_cached2(i)
+    logger.info('....')
+    
+    with Capturing() as output4:
+        for i in range(50, -1, -1):
+            out = func_cached2(i)
+
+    
+
 
 if __name__ == '__main__':
     # test_caller()
@@ -222,7 +260,8 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    test_arguments()
+    # test_arguments()
+    test_arguments2()
     
         
     

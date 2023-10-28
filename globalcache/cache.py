@@ -76,10 +76,35 @@ class Cache:
         Force reset of globalcache. The default is False.
 
     """    
-    def __init__(self, g: dict,
+    def __init__(self,
+                 g: dict, 
+                 name: str=None, 
+                 reset: bool=False,
+                 size_limit=None
+                 ):
+        self.set_globals(g, name, reset, size_limit)
+    
+    def set_globals(self, g: dict,
                  name=None, 
                  reset=False,
                  size_limit=None):
+        """Use this method to re-set the globals() dict for the cache.
+        This is needed to enable the cache from another script. 
+        
+        
+        Example
+        -------
+        module1.py
+        
+        >>> from globalcache import Cache
+        >>> cache = Cache(globals())
+        
+        main.py
+        
+        >>> from module1 import cache
+        >>> cache.set_globals(globals())
+        
+        """
         
         if name is None:
             name = Settings.GLOBAL_CACHE_NAME
@@ -176,12 +201,15 @@ class Cache:
         module = inspect.getsourcefile(fn)
         name = get_name(fn)
         # name = fn.__name__
+        
+        # print(module)
+        # print(name)
 
 
         def func(*args, **kwargs):
             var = CacheVar(self, module, name, args, kwargs, 
                            size_limit=size_limit)
-            if not var:
+            if var.not_cached:
                 out = fn(*args, **kwargs)
                 var.set(out)
             else:
@@ -228,21 +256,29 @@ def get_name(fn : Callable) -> str:
         
 
 class CacheVar:
+    """Create dictionary structure for cache variable."""
     def __init__(self, 
                  cache: Cache, 
-                 dictname: str,
+                 module: str,
                  name: str, 
                  args: tuple, 
                  kwargs: dict,
                  size_limit: int):
         
-        self.fcache = cache.cache.setdefault(dictname,
-                                             LimitDict(_size_limit=size_limit))
+        # print('CacheVar:', module, name)
+        # Get module-level dictionary
+        self.module_dict = cache.cache.setdefault(module, {})
+        
+        # Get argument-value dictionary
+        self.fcache = self.module_dict.setdefault(
+            name,
+            LimitDict(_size_limit=size_limit)
+            )
         
         if kwargs is not None:
             kwargs = frozenset(kwargs.items())
         
-        self.key = (name, args, kwargs)
+        self.key = (args, kwargs)
         self.name = name
         self._cache = cache
         
@@ -258,7 +294,7 @@ class CacheVar:
         """
         key = self.key
         try:
-            logger.debug('Retrieving %s from cache', key)
+            logger.debug('Retrieving %s %s from cache', self.name, key)
             return self.fcache[key]
         except KeyError:
             raise ValueError('Variable not yet set.')
@@ -278,6 +314,7 @@ class CacheVar:
         """Check that a value is not cached."""
         if Settings.DISABLE:
             return True
+        # breakpoint()
         return self.key not in self.fcache
     
     
@@ -289,7 +326,7 @@ class CacheVar:
         data : 
             Return input argument.
         """
-        logger.debug('Saving %s into cache', self.key)
+        logger.debug('Saving %s %s into cache', self.name, self.key)
         self.fcache[self.key] = data
         return data
     
