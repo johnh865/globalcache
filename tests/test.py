@@ -2,7 +2,8 @@
 
 import sys
 from io import StringIO 
-from globalcache import Cache, Settings
+import globalcache
+from globalcache import Cache, Settings, CacheError
 import logging
 
 
@@ -52,6 +53,8 @@ def expensive_func5(i: int):
     return i*100
 
 
+
+
 def caller1():
     c = Cache(globals())
     
@@ -64,7 +67,7 @@ def caller1():
     assert out == 10
 
     cvar = c.var('meow')
-    if not cvar:
+    if cvar.not_cached:
         print('calculating')
         out = expensive_func2()
         cvar.set(out)
@@ -115,7 +118,7 @@ def test_repeated_names():
     cvar = c.var('test1')
     try:
         cvar = c.var('test1')
-    except ValueError:
+    except CacheError:
         print('Good')
     else:
         assert False
@@ -123,16 +126,18 @@ def test_repeated_names():
         
 def test_arg_cache():
     """Make sure cache doesn't exceed limit."""
-    c = Cache(globals(), reset=True)
+    cache = Cache(globals(), reset=True)
     size = 5
     for ii in range(10):
-        c = Cache(globals(), reset=False, size_limit=size)
+        cache = Cache(globals(), reset=False, size_limit=size)
         
-        cvar = c.var('a', args=(ii))
+        cvar = cache.var('a', args=(ii))
         cvar.set(ii)
         
-        alen = len(c.cache['a'])
+        alen = len(cvar.fn_cache.fcache)
         assert alen <= size
+        # breakpoint()
+        # print(ii, alen, min(ii+1, size) )
         assert alen == min(ii+1, size)        
     return
 
@@ -140,7 +145,9 @@ def test_arg_cache():
 def test_default_cache_size():
     
     c = Cache(globals(), reset=True)
-    size = Settings.SIZE_LIMIT
+    # size = Settings.size_limit
+    size = globalcache.cache.DEFAULT_SIZE_LIMIT
+    
     
     for ii in range(10):
         c = Cache(globals(), reset=False)
@@ -148,7 +155,7 @@ def test_default_cache_size():
         cvar = c.var('a', args=(ii))
         cvar.set(ii)
         
-        alen = len(c.cache['a'])
+        alen = len(cvar.fn_cache.fcache)
         assert alen <= size
         assert alen == min(ii+1, size)        
     return    
@@ -156,40 +163,48 @@ def test_default_cache_size():
     
 def test_settings_size():
     """Test that SIZE_LIMIT actually sets the global size limit."""
-    Settings.SIZE_LIMIT = 50
+    Settings.size_limit = 50
     c = Cache(globals(), reset=True)
     
     
     for ii in range(100):
-        c = Cache(globals(), reset=False)
-        cvar = c.var('a', args=(ii))
+        cache = Cache(globals(), reset=False)
+        cvar = cache.var('a', args=(ii))
         cvar.set(ii)
                 
-        alen = len(c.cache['a'])
-        assert alen == min(ii+1, Settings.SIZE_LIMIT)        
+        alen = len(cvar.fn_cache.fcache)
+        print(ii, alen)
+        # breakpoint()
+        assert alen == min(ii+1, Settings.size_limit)      
+    
+    # Reset settings back to normal
+    Settings.size_limit = None
         
     return
 
 
 def test_settings_disable():
     """Test to make sure DISABLE actually disables cache."""
-    Settings.DISABLE = True
+    Settings.disable = True
     
     with Capturing() as output1:
         caller1()
         
     with Capturing() as output2:
         caller1()
-        
+    
     assert len(output1) == 12
     assert len(output2) == 12
+    Settings.disable = False
+
     return
     
 
 def test_arguments():
-    c = Cache(globals(), reset=True)
+    Settings.diable = False
+    cache = Cache(globals(), reset=True)
     
-    decorator = c.decorate(size_limit=1000)
+    decorator = cache.decorate(size_limit=1000)
     func_cached = decorator(expensive_func3)
     
     logger.info('STEP 1: FIRST SET VALUES')
@@ -209,7 +224,7 @@ def test_arguments():
     logger.info('output2:')         
     logger.info(output2)
     logger.info('....')
-    # breakpoint()
+    
     assert output2[0] == 'c'
     assert out1 == 'aa'
     assert out2 == 'bb'
@@ -245,23 +260,127 @@ def test_arguments2():
         for i in range(50, -1, -1):
             out = func_cached2(i)
 
+
+
+def test_reset_cache():
+    cache = Cache(globals())
+    cache.reset()
+    
+    @cache.decorate
+    def expensive_func(x):
+        print('Meow', x)
+        return x*2    
+    
+    with Capturing() as output1:
+        expensive_func(1)
+        expensive_func(2)
+        expensive_func(3)
+    
+    fc = expensive_func.fn_cache
+    assert len(fc.fcache) == 3
+    assert len(output1) == 3
+    
+    # Reset the cache
+    cache.reset()
+    # assert len(fc.fcache) == 0
+    
+    with Capturing() as output2:
+        expensive_func(1)
+        expensive_func(2)
+        expensive_func(3)
+    # breakpoint()
+    
+    assert len(output2) == 3
+    
+    
+    
+def test_save_cache():
+    cache = Cache(globals(), size_limit = 10)
+
+    
+    @cache.decorate(save=True)
+    def expensive_func(x):
+        for ii in range(5):
+            print('Meow', ii)
+        return x*2
+    
+    # Delete existing shelve if it exists
+    cache.delete_shelve()
+    cache.reset()
+    
+    # Capture print output, only occurs if no cache
+    with Capturing() as output1:
+        expensive_func(1)
+        expensive_func(1)
+    
+    assert len(output1) == 5
+    
+    # Delete globals(). Because of save, shelve data should exist
+    cache.reset()
+    
+    # No output should print because of shelve cache
+    with Capturing() as output2:
+        expensive_func(1)
+    
+    assert len(output2) == 0
+    
+    # Delete the shelve again. We should see output print
+    cache.reset()
+    cache.delete_shelve()
+    with Capturing() as output3:
+        expensive_func(1)
+        
+    assert len(output3) == 5
+    
+    # cleanup
+    cache.delete_shelve()
+
+
+def test_cache_import():
+    """Import cache from another module. Test set_globals method."""
+    from tests.test_import import expensive_func10, gcache
+    import numpy as np
+    
+    gcache.set_globals(globals())
+    
+    with Capturing() as output1:
+        for i in range(10):
+            expensive_func10(i)
+    
+    assert np.all(output1 == np.arange(10).astype(str))
+    
+    with Capturing() as output2:
+        for i in range(20):
+            expensive_func10(i)
+    assert np.all(output2 == np.arange(10, 20).astype(str))
+    
     
 
 
+
+    
 if __name__ == '__main__':
-    # test_caller()
-    # test_decorator()    
-    # test_repeated_names()
-    # test_arg_cache()
-    # test_default_cache_size()
-    # test_settings_size()
-    # test_settings_disable()
-    # logger = logging.getLogger(__name__)
+    
     logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    # test_arguments()
+
+
+
+    test_caller()
+    test_decorator()    
+    test_repeated_names()
+    test_arg_cache()
+    test_default_cache_size()
+    test_settings_size()
+    test_settings_disable()
+    test_arguments()
     test_arguments2()
+    test_reset_cache()
+    test_save_cache()
+    test_cache_import()
+    # scratch1()
+
     
         
     

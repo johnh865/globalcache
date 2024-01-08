@@ -5,6 +5,9 @@ Globalcache allows you to store results in IPython or Spyder globals().
 This lets you re-run a script and skip the heavy computing if the result 
 has already been processed, when you rerun your script. 
 
+The purpose of this is for rapid development for scientific and datascience 
+purposes. 
+
 
 Spyder Requirements
 --------------------
@@ -20,15 +23,6 @@ Create a cache with:
     
     >>> from globalcache import Cache
     >>> cache = Cache(globals())
-    
-
-Store a parameter with an if block:
-    
-    >>> var1 = cache.var('my-param')
-    >>> if not var1:
-    >>>     out = expensive_function()
-    >>>     var1.set(out)
-    >>> out = var1.get()
     
 Decorate an expensive function:
 
@@ -46,7 +40,17 @@ Reset the cache of a function (force delete old values):
     
     >>> @cache.decorate_reset
     >>> def func1(*args, **kwargs):
-    >>>    ....
+    >>>    ...
+
+
+Store a parameter with an if block:
+    
+    >>> var1 = cache.var('my-param')
+    >>> if var1.not_cached:
+    >>>     out = expensive_function()
+    >>>     var1.set(out)
+    >>> out = var1.get()
+    
 
 
 Use settings to modify global configuration:

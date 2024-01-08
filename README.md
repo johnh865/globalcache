@@ -40,16 +40,3 @@ Decorate an expensive function:
      # Note that args & kwargs must be hashable. 
 
 
-Use settings to modify global configuration:
-    
-     from globalcache import Settings
-    
-     # Disable the cache
-	 Settings.DISABLE = True
-    
-     # Set default cache size. Set to None for unlimited size.
-	 Settings.SIZE_LIMIT = None
-	 Settings.SIZE_LIMIT = 100
-        
-     # Rename the default dictionary name
-	 Settings.GLOBAL_CACHE_NAME = 'my-new-name'

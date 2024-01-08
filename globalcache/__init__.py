@@ -22,14 +22,6 @@ Create a cache with:
     >>> cache = Cache(globals())
     
 
-Store a parameter with an if block:
-    
-    >>> var1 = cache.var('my-param')
-    >>> if not var1:
-    >>>     out = expensive_function()
-    >>>     var1.set(out)
-    >>> out = var1.get()
-    
 Decorate an expensive function:
 
     >>> @cache.decorate
@@ -42,30 +34,22 @@ Decorate an expensive function:
     Note that args & kwargs must be hashable. 
 
 
+
+Store a parameter with an if block:
+    
+    >>> var1 = cache.var('my-param')
+    >>> if var1.not_cached:
+    >>>     out = expensive_function()
+    >>>     var1.set(out)
+    >>> out = var1.get()
+    
+
+
 Reset the cache of a function (force delete old values):
     
-    >>> @cache.decorate_reset
+    >>> @cache.decorate(reset=True)
     >>> def func1(*args, **kwargs):
     >>>    ....
-
-
-Use settings to modify global configuration:
-    
-    >>> from globalcache import Settings
-    
-    Disable the cache
-    
-        >>> Settings.DISABLE = True
-    
-    Set default cache size. Set to None for unlimited size.
-    
-        >>> Settings.SIZE_LIMIT = None
-        >>> Settings.SIZE_LIMIT = 100
-        
-        
-    Rename the default dictionary name
-        
-        >>> Settings.GLOBAL_CACHE_NAME = 'my-new-name'
 
 """
 
@@ -73,4 +57,4 @@ Use settings to modify global configuration:
 
 
 
-from globalcache.cache import Cache, Settings
+from globalcache.cache import Cache, Settings, CacheError
