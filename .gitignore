@@ -17,9 +17,11 @@ globalcache/.pylint.d/
 
 .idea/
 .pytest_cache/
-
+.globalcache/
 
 # Ignore setup build files
 dist/
 build/
 *egg-info/
+
+scratch.py

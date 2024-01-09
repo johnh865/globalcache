@@ -355,6 +355,39 @@ def test_cache_import():
     assert np.all(output2 == np.arange(10, 20).astype(str))
     
     
+    
+def test_shelve():
+    """Test shelving."""
+    
+    cache1 = Cache(globals())
+    cache1.delete_shelve()
+    cache1.reset()
+    
+    @cache1.decorate(save=True)
+    def expensive_func(x):
+        print(x)
+        return x*2
+    with Capturing() as output:
+        expensive_func(1)
+        expensive_func(2)
+    assert len(output) == 2
+    cache1.reset()
+    
+    
+    print('')
+    cache2 = Cache(globals())
+    @cache2.decorate(save=True)
+    def expensive_func(x):
+        print(x)
+        return x*2
+    
+    with Capturing() as output:
+        expensive_func(1)
+        expensive_func(2)
+        expensive_func(3)
+    assert len(output) == 1
+    # breakpoint()
+
 
 
 
@@ -367,18 +400,19 @@ if __name__ == '__main__':
 
 
 
-    test_caller()
-    test_decorator()    
-    test_repeated_names()
-    test_arg_cache()
-    test_default_cache_size()
-    test_settings_size()
-    test_settings_disable()
-    test_arguments()
-    test_arguments2()
-    test_reset_cache()
-    test_save_cache()
-    test_cache_import()
+    # test_caller()
+    # test_decorator()    
+    # test_repeated_names()
+    # test_arg_cache()
+    # test_default_cache_size()
+    # test_settings_size()
+    # test_settings_disable()
+    # test_arguments()
+    # test_arguments2()
+    # test_reset_cache()
+    # test_save_cache()
+    # test_cache_import()
+    test_shelve()
     # scratch1()
 
     

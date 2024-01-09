@@ -376,7 +376,20 @@ class Cache:
     def module_names(self) -> list[str]:
         """Names of all cached modules."""
         return list(self.cache.keys())
-        
+    
+    def module_names_short(self) -> list[str]:
+        names = [splitext(basename(path))[0] for path in self.module_names]
+        out = rename_duplicates(names)
+        return out
+    
+    
+    def get_module_short_name(self, name: str):
+        """Take module name and return a shortened version."""
+        d = dict(zip(self.module_names, self.module_names_short()))
+        return d[name]
+
+
+    
         
 def get_name(fn : Callable) -> str:
     """Create a name for a callable function."""
@@ -391,6 +404,24 @@ def get_name(fn : Callable) -> str:
             break
     return name
         
+def rename_duplicates(lst: list) -> list:
+    """Rename duplicates in a list. From ChatGTP"""
+    seen_elements = {}
+    renamed_list = []
+
+    for element in lst:
+        if element in seen_elements:
+            seen_elements[element] += 1
+            new_element = f"{element}_{seen_elements[element]}"
+        else:
+            seen_elements[element] = 1
+            new_element = element
+
+        renamed_list.append(new_element)
+
+    return renamed_list
+
+
             
 
 class FunctionCache:
@@ -461,9 +492,10 @@ class FunctionCache:
         self._is_first_run = True
         
         # Read shelve data        
-        module_hash = hash(module)
-        module_fname = splitext(basename(module))[0]
-        self.shelve_name = f'{module_fname}-{module_hash}'
+        # module_hash = module.replace('\\','').replace(':','').replace('.','')
+        # module_fname = splitext(basename(module))[0]
+        # self.shelve_name = f'{module_fname}-{module_hash}'
+        self.shelve_name = cache.get_module_short_name(module)
             
         # Track definitions to prevent redefinition.
         function_list = cache.function_cache_names.setdefault(module, [])
@@ -500,12 +532,14 @@ class FunctionCache:
         
         # Reun as-is if caching is disabled by environ variable. 
         if get_disable():
+            logger.debug('Disable flag detected. Disabling cache.')
             return self.fn(*args, **kwargs)
         
         # Initialize file persistence
         if self._is_first_run:
             self._is_first_run = False
             if self.save:
+                logger.debug('Initializing shelve')
                 self.shelve_init()
                 
             
@@ -517,6 +551,7 @@ class FunctionCache:
         key = (args, kwargs2)
         try:
             output = self.fcache[key]
+            logger.debug('Successfully retrieved key=%s from fcache', key)
             return output
         
         except KeyError:
@@ -525,10 +560,13 @@ class FunctionCache:
                 shelve_key = str((self.name, args, kwargs))
                 try:
                     output = self.shelve_read(key, shelve_key)
+                    logger.debug('Successfully read key=%s from shelve', key)
                 except KeyError:
+                    logger.debug('key=%s not found in any cache. Running function %s', key, self.fn)
                     output = self.fn(*args, **kwargs)
                     self.shelve_save(shelve_key, output)
             else:
+                logger.debug('key=%s not found in any cache. Running function %s', key, self.fn)
                 output = self.fn(*args, **kwargs)
             
             self.fcache[key] = output
@@ -745,7 +783,7 @@ class CacheVarOLD:
         
         module_hash = hash(module)
         module_fname = splitext(basename(module))[0]
-        self.shelve_name = f'{module_fname}-{module_hash}'
+        # self.shelve_name = self.
         self.shelve_key = str((name, args, kwargs))
         self.save = save
         
