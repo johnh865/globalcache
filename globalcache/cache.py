@@ -49,6 +49,9 @@ class Settings:
         Maximum size of cache for each cached variable. Set SIZE_LIMIT <= 0
         for unlimited length. 
         Set None for default length.
+    save_dir : str
+        Directory path of shelve cache on disc.
+        
     """
     global_cache_name = ''
     disable = DEFAULT_DISABLE
@@ -92,6 +95,7 @@ def get_size_limit(size_limit: int) -> int:
 
 
 def get_disable() -> bool:
+    """Get disable flat from global settings."""
     # out = os.environ.get('GLOBAL_CACHE_DISABLE', '0')
     return Settings.disable
 
@@ -241,7 +245,12 @@ class Cache:
             Hashable kwargs for result identification. The default is None.
         size_limit : int, optional
             Max size of cached results. The default is None.
-
+        save : bool, optional
+            True to save cache to disk. Default is False. 
+        module : str
+            Rename the module label. Default is ''.
+            
+            
         Raises
         ------
         ValueError
@@ -274,6 +283,12 @@ class Cache:
             
         size_limit : int, optional
             Max cache size (keyword argument not supported)
+            
+        reset : bool, optional
+            True to reset globals() cache. Default is False.
+            
+        save : bool, optional
+            True to save cache to disk. Default is False. 
 
         Returns
         -------
@@ -425,7 +440,8 @@ def rename_duplicates(lst: list) -> list:
             
 
 class FunctionCache:
-    """
+    """Cache function output into globals(). Should not be directly called,
+    create using Cache.decorate(...)
     
 
     Parameters
@@ -531,6 +547,8 @@ class FunctionCache:
         """Call the function with caching."""
         
         # Reun as-is if caching is disabled by environ variable. 
+        name = self.name
+        
         if get_disable():
             logger.debug('Disable flag detected. Disabling cache.')
             return self.fn(*args, **kwargs)
@@ -539,7 +557,7 @@ class FunctionCache:
         if self._is_first_run:
             self._is_first_run = False
             if self.save:
-                logger.debug('Initializing shelve')
+                logger.debug('Initializing shelve for %s', name)
                 self.shelve_init()
                 
             
@@ -551,7 +569,7 @@ class FunctionCache:
         key = (args, kwargs2)
         try:
             output = self.fcache[key]
-            logger.debug('Successfully retrieved key=%s from fcache', key)
+            logger.debug('Retrieved key=%s from fcache %s', key, name)
             return output
         
         except KeyError:
@@ -560,13 +578,13 @@ class FunctionCache:
                 shelve_key = str((self.name, args, kwargs))
                 try:
                     output = self.shelve_read(key, shelve_key)
-                    logger.debug('Successfully read key=%s from shelve', key)
+                    logger.debug('Read key=%s from shelve for %s', key, name)
                 except KeyError:
-                    logger.debug('key=%s not found in any cache. Running function %s', key, self.fn)
+                    logger.debug('key=%s not found in shelve cache. Running function %s', key, name)
                     output = self.fn(*args, **kwargs)
                     self.shelve_save(shelve_key, output)
             else:
-                logger.debug('key=%s not found in any cache. Running function %s', key, self.fn)
+                logger.debug('key=%s not found in cache. Running function %s', key, name)
                 output = self.fn(*args, **kwargs)
             
             self.fcache[key] = output
@@ -670,11 +688,7 @@ class CacheVar:
         def fn(*args, **kwargs):
             raise CacheError('This dummy function should not ever be called.')
 
-
-        # if kwargs is not None:
         kwargs2 = frozenset(kwargs.items())
-        # else:
-        #     kwargs2 = frozenset()
             
         self.key = (args, kwargs2)
         self.fn_cache = FunctionCache(
@@ -683,7 +697,6 @@ class CacheVar:
             size_limit = size_limit,
             save = save, name = name, module = module
             )
-        
     
     def set(self, output: Any):
         """Set cached variable data."""
@@ -713,7 +726,7 @@ class CacheVar:
         
 
                  
-class CacheVarOLD:
+class __CacheVarOLD:
     """Create dictionary structure for cache variable.
     
     Parameters

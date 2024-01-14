@@ -3,7 +3,13 @@ Globalcache
 -----------
 Globalcache allows you to store results in IPython or Spyder globals().
 This lets you re-run a script and skip the heavy computing if the result 
-has already been processed, when you rerun your script. 
+has already been processed, when you re-run your script. 
+
+Globalcache also features the ability to cache function results to disk.
+
+The objective is to speed up development of computationally expensive code. 
+Cache the results of code you know to be correct while you iteratively 
+debug and develop the rest of your code.
 
 
 Spyder Requirements
@@ -34,6 +40,27 @@ Decorate an expensive function:
     Note that args & kwargs must be hashable. 
 
 
+Reset the cache of a function (force delete old values):
+    
+    >>> @cache.decorate(reset=True)
+    >>> def func1(*args, **kwargs):
+    >>>    ....
+
+
+Save cache to disk:
+    
+    >>> @cache.decorate(save=True)
+    >>> def func2(*args, **kwargs):
+    >>>     ...
+    
+    
+Clear out cache from globals():
+    >>> cache.reset()
+    
+Delete cache from disk:
+    >>> cache.delete_shelve()
+    
+
 
 Store a parameter with an if block:
     
@@ -43,14 +70,6 @@ Store a parameter with an if block:
     >>>     var1.set(out)
     >>> out = var1.get()
     
-
-
-Reset the cache of a function (force delete old values):
-    
-    >>> @cache.decorate(reset=True)
-    >>> def func1(*args, **kwargs):
-    >>>    ....
-
 """
 
 

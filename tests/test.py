@@ -6,6 +6,7 @@ import globalcache
 from globalcache import Cache, Settings, CacheError
 import logging
 
+logger = logging.getLogger()
 
 class Capturing(list):
     """Capture stdout.
@@ -23,7 +24,10 @@ class Capturing(list):
         
             
 def expensive_func():
-    """An arbitrary function to be evaluated by globalcache with output 10"""
+    """An arbitrary function to be evaluated by globalcache with output 10.
+    prined output can be used to prove whether the code in the function was
+    run or skipped by the cache. 
+    """
     for ii in range(5):
         print('Meow', ii)
     return 10.0
@@ -389,9 +393,30 @@ def test_shelve():
     # breakpoint()
 
 
-
-
+def test_repeated_def():
+    """Make sure cache rejects redinition of functions."""
     
+    cache = Cache(globals())
+    error_caught = False
+    
+    @cache.decorate
+    def func1(x):
+        return x
+    
+    try:
+        @cache.decorate
+        def func1(x):
+            return x*2
+        
+    except CacheError:
+        error_caught = True
+        
+        # print(type(e1))
+        # breakpoint()
+        
+    assert error_caught
+    
+# %% main
 if __name__ == '__main__':
     
     logging.basicConfig(level=logging.DEBUG)
@@ -400,20 +425,20 @@ if __name__ == '__main__':
 
 
 
-    # test_caller()
-    # test_decorator()    
-    # test_repeated_names()
-    # test_arg_cache()
-    # test_default_cache_size()
-    # test_settings_size()
-    # test_settings_disable()
-    # test_arguments()
-    # test_arguments2()
-    # test_reset_cache()
-    # test_save_cache()
-    # test_cache_import()
+    test_caller()
+    test_decorator()    
+    test_repeated_names()
+    test_arg_cache()
+    test_default_cache_size()
+    test_settings_size()
+    test_settings_disable()
+    test_arguments()
+    test_arguments2()
+    test_reset_cache()
+    test_save_cache()
+    test_cache_import()
     test_shelve()
-    # scratch1()
+    test_repeated_def()
 
     
         
