@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "globalcache"
+version = "0.1.3"
+authors = [
+  { name="John Huang", email="johnzilla76@gmail.com" },
+]
+description = "Global caching for iPython and Spyder"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/johnh865/globalcache"
+Issues = "https://github.com/johnh865/globalcache/issues"

@@ -20,6 +20,10 @@ globalcache/.pylint.d/
 .globalcache/
 .vscode/
 
+
+# pypi username and password
+.pyirc
+
 # Ignore setup build files
 dist/
 build/
