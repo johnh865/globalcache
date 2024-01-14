@@ -18,6 +18,7 @@ globalcache/.pylint.d/
 .idea/
 .pytest_cache/
 .globalcache/
+.vscode/
 
 # Ignore setup build files
 dist/

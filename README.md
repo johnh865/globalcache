@@ -14,9 +14,9 @@ debug and develop the rest of your code.
 Spyder Requirements
 --------------------
 Globalcache only works with the option "Run in console's namespace instead of 
-an empty one". Or when Spyder calls `spydercustomize.runfile`, set 
+an empty one" in the "Run" preferences. Or when Spyder calls `spydercustomize.runfile`, set 
 
->>> spydercustomize.runfile(current_namespace = True)
+    >>> spydercustomize.runfile(current_namespace = True)
 
 Usage
 -----
