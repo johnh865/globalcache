@@ -1,7 +1,8 @@
 Globalcache
------------
+===========
+
 Globalcache allows you to store results in iPython, Jupyter, or Spyder.
-This lets you re-run a script and skip the heavy computing if the result 
+This lets you re-run a script and skip heavy computing if the result 
 has already been processed.
 
 Globalcache can also cache function results to disk.
@@ -40,7 +41,9 @@ Use the cache to decorate an expensive function and skip the calculation in subs
     >>>     return output
     >>> out = func1()
     
-*Note: args & kwargs must be hashable.*
+*Note: args & kwargs must be hashable.* 
+
+
 
 
 Reset the cache of a function (force delete old values):
@@ -61,7 +64,8 @@ Set limitations on how many results we can store at a time:
     >>>     ...
 
 Saving to disk
-==============
+---------------
+
 
 `globalcache` can shelve results to the disk using `decorate`. 
 To save the cache to disk, use:
@@ -84,7 +88,7 @@ The default can be changed using:
 	
 
 Caching an if-block
-===================
+--------------------
 
 globalcache can cache a variable and skip an expensive block of code. 
 	
@@ -106,7 +110,8 @@ Results can be cached dependent on the change of other variables:
 	
 
 Disabling the globalcache
-=========================
+-------------------------
+
 Force disable the globalcache:
 
 	>>> import globalcache
@@ -114,7 +119,8 @@ Force disable the globalcache:
 	
 	
 Using imported modules
-======================
+----------------------
+
 Each Python module will have its own global namespace. If you wish to import a 
 module that uses globalcache, you must re-initialize globals() to the __main__ script.
 
@@ -125,3 +131,21 @@ For example:
 	>>> from module1 import expensive_func, gcache 
 	>>> gcache.set_globals(globals())
 	
+	
+Dealing with Unhashable Arguments
+---------------------------------
+If your function relies on unhashable arguments, there are various
+strategies. For example, you can associate unhashable
+arguments with hashable parameters. For example:
+
+    >>> dict1 = {'a': [1,2,3],
+    >>>          'b': [3,4,5],
+    >>>         }
+    >>> @cache.decorate
+    >>> def func2(key):
+    >>>     args = dict1[key]
+    >>>     return func1(args) 
+    
+Or you can use an if-block cache. 
+
+
