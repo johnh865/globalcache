@@ -95,7 +95,7 @@ def get_size_limit(size_limit: int) -> int:
 
 
 def get_disable() -> bool:
-    """Get disable flat from global settings."""
+    """Get disable flag from global settings."""
     # out = os.environ.get('GLOBAL_CACHE_DISABLE', '0')
     return Settings.disable
 
@@ -221,6 +221,8 @@ class Cache:
         self.function_cache_names  = {}
         self.function_caches = {}
         self._globals = g
+        
+        self.is_main = g['__name__'] == '__main__'
         
         return
     
@@ -544,7 +546,26 @@ class FunctionCache:
     
         
     def __call__(self, *args, **kwargs):
-        """Call the function with caching."""
+        """Call the function with caching.
+
+        Parameters
+        ----------
+        *args : 
+            Function arguments.
+        **kwargs : 
+            Function keyword arguments.
+
+        Raises
+        ------
+        CacheError
+            Raised if you try to use unhashable arguments in function.
+
+        Returns
+        -------
+        out :
+            Function `fn` output.
+
+        """
         
         # Reun as-is if caching is disabled by environ variable. 
         name = self.name
@@ -552,6 +573,12 @@ class FunctionCache:
         if get_disable():
             logger.debug('Disable flag detected. Disabling cache.')
             return self.fn(*args, **kwargs)
+        
+        # globalcache will not work if globals() are not from __main__ script
+        if not self._cache.is_main:
+            logger.debug('globals() not set. Disabling cache.')
+            return self.fn(*args, **kwargs)
+            
         
         # Initialize file persistence
         if self._is_first_run:
@@ -568,10 +595,13 @@ class FunctionCache:
             
         key = (args, kwargs2)
         try:
-            output = self.fcache[key]
+            try:
+                output = self.fcache[key]
+            except TypeError:
+                raise CacheError(f'Arguments {args} and {kwargs} for function {self.name} must be hashable.')
+                
             logger.debug('Retrieved key=%s from fcache %s', key, name)
             return output
-        
         except KeyError:
             
             if self.save:

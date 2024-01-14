@@ -416,6 +416,24 @@ def test_repeated_def():
         
     assert error_caught
     
+def test_unhashable():
+    """Test behavior when you try to use unhashable arguments."""
+    
+    cache = Cache(globals())
+    
+    @cache.decorate
+    def func1(x):
+        return x
+    
+    error_caught = False
+    x = [1,2,3]
+    try:
+        y = func1(x)
+    except CacheError:
+        error_caught = True
+    assert error_caught
+    
+    
 # %% main
 if __name__ == '__main__':
     
@@ -439,6 +457,8 @@ if __name__ == '__main__':
     test_cache_import()
     test_shelve()
     test_repeated_def()
+    
+    test_unhashable()
 
     
         
