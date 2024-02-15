@@ -434,6 +434,26 @@ def test_unhashable():
     assert error_caught
     
     
+def test_name():
+    cache = Cache(globals())
+    
+    @cache.decorate(name='bobby_blue')
+    def func1(x):
+        return x
+    
+    keys = cache.function_caches.keys()
+    keys = list(keys)
+    key = keys[0]
+    assert key.endswith('bobby_blue')
+    
+    # breakpoint()
+    
+    
+    
+
+    
+    
+    
 # %% main
 if __name__ == '__main__':
     
@@ -459,6 +479,7 @@ if __name__ == '__main__':
     test_repeated_def()
     
     test_unhashable()
+    test_name()
 
     
         

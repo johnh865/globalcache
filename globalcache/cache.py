@@ -275,6 +275,7 @@ class Cache:
                  size_limit: Union[None, int] = None, 
                  reset: bool = False,
                  save: bool = False,
+                 name: str = '',
                  ) -> Callable:
         """Decorate an expensive function to cache the result. 
 
@@ -316,6 +317,7 @@ class Cache:
                     size_limit=size_limit,
                     reset=reset,
                     save=save,
+                    name=name,
                     )
         return func
         
@@ -410,16 +412,19 @@ class Cache:
         
 def get_name(fn : Callable) -> str:
     """Create a name for a callable function."""
-    name = fn.__name__
+    # name = fn.__name__
+    name = fn.__qualname__
     while True:
         try:
             parent = fn.__self__
             fn = parent.__class__
-            parent_name = fn.__name__
+            # parent_name = fn.__name__
+            parent_name = fn.__qualname__
             name = parent_name + '.' + name
         except AttributeError:
             break
     return name
+        
         
 def rename_duplicates(lst: list) -> list:
     """Rename duplicates in a list. From ChatGTP"""
