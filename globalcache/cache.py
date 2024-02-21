@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from functools import wraps
 import inspect
 import shelve
 import os
@@ -341,7 +342,8 @@ class Cache:
         self.function_caches[key] = fn_cache
         if reset:
             fn_cache.reset()
-            
+           
+        @wraps(fn)
         def func(*args, **kwargs):
             return fn_cache(*args, **kwargs)
         

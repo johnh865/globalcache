@@ -450,6 +450,18 @@ def test_name():
     
     
     
+def test_wraps():
+    """make sure decoration preserves docstring."""
+    
+    cache = Cache(globals())
+    @cache.decorate
+    def fun1(x: int, y: float):
+        """my lovely function."""
+        return x * y
+    
+    assert fun1.__doc__ =='my lovely function.'
+    
+
 
     
     
@@ -481,6 +493,6 @@ if __name__ == '__main__':
     test_unhashable()
     test_name()
 
-    
+    test_wraps()
         
     
