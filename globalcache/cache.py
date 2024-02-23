@@ -9,12 +9,13 @@ from collections import OrderedDict
 import logging
 import shutil
 from functools import cached_property
+import warnings
 
 logger = logging.getLogger(__name__)
 
 
 DEFAULT_GLOBAL_CACHE_NAME = '__GLOBAL_CACHE__'
-DEFAULT_SIZE_LIMIT = 10
+DEFAULT_SIZE_LIMIT = None
 DEFAULT_DISABLE = False
 DEFAULT_SAVE_DIR = '.globalcache'
 
@@ -168,29 +169,40 @@ class Cache:
                  size_limit: int=None,
                  save_dir='',
                  ):
-        logger.info('Creating cache %s', self)
+        self._globals = g
+        self.name = name
+        logger.debug('Creating cache %s', self)
         
         if name is None:
             name = DEFAULT_GLOBAL_CACHE_NAME        
         
-        self.name = name
-        self.reset = reset
         self.size_limit = size_limit
         self.save_dir = save_dir
+        self._function_caches = set()
+        self.set_globals(g, name, size_limit, save_dir)
         
-        # if g is not None:
-        self.set_globals(g, name, reset, size_limit, save_dir)
+        if reset:
+            self.reset()
             
+            
+    def __repr__(self):
+        g = self._globals
+        try:
+            gname = g['__name__']
+        except KeyError:
+            gname = '...'
+        out = f"Cache('{gname}','{self.name}')"
+        return out
+    
             
     def init(self,
             g: dict,
             name: Union[str, None] = None, 
-            reset: bool = False,
             size_limit: Union[int, None] = None,
             save_dir: str='',
             ):
         self.set_globals(
-            g=g, name=name, reset=reset, 
+            g=g, name=name,
             size_limit=size_limit, save_dir=save_dir)
     
     
@@ -198,7 +210,7 @@ class Cache:
             self, 
             g: dict,
             name: Union[str, None] = None, 
-            reset: bool = False,
+            # reset: bool = False,
             size_limit: Union[int, None] = None,
             save_dir: str='',
             ):
@@ -222,38 +234,47 @@ class Cache:
         if name is None:
             name = self.name
         self.name = name
+        self.size_limit = size_limit
+        self.save_dir = save_dir
         
         # if size_limit is None:
         #     size_limit = Settings.SIZE_LIMIT
         # if save_dir == '':
         #     save_dir = Settings.SAVE_DIR
-        logger.info('Set globals for %s', self)
-
+        
+        logger.debug('Set globals for %r', self)
         
         if name in g:
-            logger.info('Cache dict %s found in globals()', name)
-            if reset:
-                self.cache = {}
-            else:
-                self.cache = g[name].cache
-        else:
+            logger.debug('Cache dict %s found in globals()', name)
+            cache : Cache
+            cache = g[name]
+            self.cdict = cache.cdict
             # breakpoint()
-            logger.info('No cache dict %s found in globals()', name)
-            self.cache = {}
+            # self._function_caches.update(cache._function_caches)
+            
+        else:
+            logger.debug('No cache dict %s found in globals()', name)
+            self.cdict = {}
+            # self._function_caches = set()      
+            
+            
         
+
+            
+            
+        self._function_cache_names  = {}
+            
         # Make sure to set self into globals()
         g[name] = self        
         
-        # Keep track of what is set into self.var(...)
-        self._global_vars = set()
-        self.size_limit = size_limit
-        self.save_dir = save_dir
-        self.function_cache_names  = {}
-        self.function_caches = {}
+
+
         self._globals = g
-        
-        # self.is_main = g['__name__'] == '__main__'
-        
+        try:
+            self.is_main = g['__name__'] == '__main__'
+        except KeyError:
+            self.is_main = False
+            
         return
     
     
@@ -294,7 +315,7 @@ class Cache:
         """
         if size_limit is None:
             size_limit = self.size_limit
-            
+        logger.debug('Creating CacheVar %s', name)
         return CacheVar(self, name=name, args=args, kwargs=kwargs,
                         size_limit=size_limit, save=save, module=module)
             
@@ -358,17 +379,16 @@ class Cache:
                       save : bool,
                       name: str = '',
                       ):
-        logger.info('Initializing function %s', fn)
+        logger.debug('Initializing function %s', fn)
         fn_cache = FunctionCache(self,
                                  fn=fn,
                                  size_limit=size_limit,
                                  save=save, 
                                  name=name
                                  )
-        # self._function_caches.append(fn_cache)
         
-        key = fn_cache.module + '-' + fn_cache.name
-        self.function_caches[key] = fn_cache
+        # key = fn_cache.module + '-' + fn_cache.name
+        self._function_caches.add(fn_cache)
         if reset:
             fn_cache.reset()
            
@@ -381,30 +401,12 @@ class Cache:
             
         return func
     
-            
-   
-    
-    # def decorate_reset(self, fn: Callable) -> Callable:
-    #     """Force recalulate the value of the expension function."""
-    #     module = inspect.getsourcefile(fn)
-    #     name = get_name(fn)
-    #     # name = fn.__name__        
-        
-    #     def func(*args, **kwargs):
-    #         logger.debug('Resetting %s', name)
-    #         var = CacheVar(self, module, name, args, kwargs, 
-    #                        size_limit=self.size_limit)
-    #         out = fn(*args, **kwargs)
-    #         var.reset()
-    #         var.set(out)
-    #         return out
-    #     return func
-    
 
     def reset(self):
         """Reset the global cache dict."""
-        self.cache.clear()
-        for fun_cache in self.function_caches.values():
+        logger.debug('Resetting cache %s', self)
+        self.cdict.clear()
+        for fun_cache in self._function_caches:
             fun_cache.reset()
         
         
@@ -417,7 +419,7 @@ class Cache:
             shutil.rmtree(dir1)
             
         # Reset to reinitiatlize FunctionCache
-        for fn_cache in self.function_caches.values():
+        for fn_cache in self._function_caches:
             fn_cache._is_first_run = True
         
         
@@ -425,7 +427,7 @@ class Cache:
     @property
     def module_names(self) -> list[str]:
         """Names of all cached modules."""
-        return list(self.cache.keys())
+        return list(self.cdict.keys())
     
     def module_names_short(self) -> list[str]:
         names = [splitext(basename(path))[0] for path in self.module_names]
@@ -437,8 +439,10 @@ class Cache:
         """Take module name and return a shortened version."""
         d = dict(zip(self.module_names, self.module_names_short()))
         return d[name]
-
-
+    
+    @property
+    def function_caches(self) -> list['FunctionCache']:
+        return list(self._function_caches)
     
         
 def get_name(fn : Callable) -> str:
@@ -452,6 +456,7 @@ def get_name(fn : Callable) -> str:
             # parent_name = fn.__name__
             parent_name = fn.__qualname__
             name = parent_name + '.' + name
+            breakpoint()
         except AttributeError:
             break
     return name
@@ -543,12 +548,20 @@ class FunctionCache:
         self.shelve_name = cache.get_module_short_name(module)
             
         # Track definitions to prevent redefinition.
-        function_list = cache.function_cache_names.setdefault(module, [])
+        function_list = cache._function_cache_names.setdefault(module, [])
+
         if name in function_list:
             raise CacheError(f'{name} cannot be redefined for module {module}')
         else:
             function_list.append(name)
             
+            
+    def __repr__(self):
+        return f"FunctionCache({self.fn})"
+    
+    def __hash__(self):
+        return hash(self.module + '-' + self.name)
+        
             
     def reinit_dicts(self):
         """Reinitialize dictionaries to make sure they are in the right
@@ -556,7 +569,7 @@ class FunctionCache:
         cache = self._cache
         
         # Get module-level dictionary
-        self.module_dict = cache.cache.setdefault(self.module, {})
+        self.module_dict = cache.cdict.setdefault(self.module, {})
         
         # Get argument-value dictionary
         self.fcache = self.module_dict.setdefault(
@@ -621,9 +634,10 @@ class FunctionCache:
             return self.fn(*args, **kwargs)
         
         # globalcache will not work if globals() are not from __main__ script
-        # if not self._cache.is_main:
-        #     logger.debug('globals() not set. Disabling cache.')
-        #     return self.fn(*args, **kwargs)
+        if not self._cache.is_main:
+            warnings.warn('gcache has not yet been initialized with globals(). Cache is disabled')
+            logger.debug('globals() not set. Disabling cache.')
+            return self.fn(*args, **kwargs)
             
         
         # Initialize file persistence
@@ -854,7 +868,7 @@ class __CacheVarOLD:
         
         # print('CacheVar:', module, name)
         # Get module-level dictionary
-        self.module_dict = cache.cache.setdefault(module, {})
+        self.module_dict = cache.cdict.setdefault(module, {})
         
         # Get argument-value dictionary
         self.fcache = self.module_dict.setdefault(

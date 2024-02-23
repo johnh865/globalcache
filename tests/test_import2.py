@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from globalcache import Cache
+from globalcache import gcache
 
-gcache = Cache(globals())
+
+
 
 @gcache.decorate(size_limit=10)
 def expensive_func10(i: int):
@@ -12,9 +13,10 @@ def expensive_func10(i: int):
 
 
 
-
+@gcache.decorate
 class Jimmy:
     def __init__(self, x: int):
         self.x = x
         print('hello')
+       
         

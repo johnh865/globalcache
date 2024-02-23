@@ -5,6 +5,7 @@ from io import StringIO
 import globalcache
 from globalcache import Cache, Settings, CacheError
 import logging
+import os
 
 logger = logging.getLogger()
 
@@ -149,8 +150,9 @@ def test_arg_cache():
 def test_default_cache_size():
     
     c = Cache(globals(), reset=True)
-    # size = Settings.size_limit
-    size = globalcache.cache.DEFAULT_SIZE_LIMIT
+    Settings.size_limit = 10
+    size = Settings.size_limit
+    # size = globalcache.cache.DEFAULT_SIZE_LIMIT
     
     
     for ii in range(10):
@@ -441,12 +443,10 @@ def test_name():
     def func1(x):
         return x
     
-    keys = cache.function_caches.keys()
-    keys = list(keys)
-    key = keys[0]
-    assert key.endswith('bobby_blue')
-    
-    # breakpoint()
+    # keys = cache._function_caches.keys()
+    fcaches = cache.function_caches
+    names = [f.name for f in fcaches]
+    assert 'bobby_blue' in names
     
     
     
@@ -463,7 +463,30 @@ def test_wraps():
     
 
 
+def test_run_in_spyder():
+    """Run the test2.py module and make sure cache works over multiple runs."""
+    import spydercustomize
+    from spydercustomize import runfile
     
+    fname = 'test2.py'
+    folder = os.path.dirname(__file__)
+    path = os.path.join(folder, fname)
+    
+    with Capturing() as output1:
+        runfile(filename=path, current_namespace=False)
+    
+    hello_count = sum(1 for line in output1 if line == 'hello')
+    assert hello_count == 3
+    
+    
+    with Capturing() as output2:
+        
+        runfile(filename=path, current_namespace=True)
+        
+    for line in output2:
+        assert line != 'hello'
+    
+        
     
     
 # %% main
@@ -494,5 +517,7 @@ if __name__ == '__main__':
     test_name()
 
     test_wraps()
+    
+    test_run_in_spyder()
         
     
