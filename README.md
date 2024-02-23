@@ -105,8 +105,8 @@ Results can be cached dependent on the change of other variables:
 	>>> var2 = gcache.var('param2', args=(args1, args2),
 	>>>                   kwargs=dict2, save=False, size_limit=None)
 	>>> if var2.not_cached:
-	>>> 	out = expensive_function()
-	>>>		var2.set(out)
+	>>>     out = expensive_function()
+	>>>	    var2.set(out)
 	>>> out = var2.get()
 	
 
