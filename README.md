@@ -55,7 +55,7 @@ Reset the cache of a function (force delete old values):
 Clear out cache from globals():
 
     >>> gcache.reset()
-	
+
 
 Set limitations on how many results we can store at a time:
 
@@ -83,10 +83,10 @@ Delete the cache files from disk:
 
 By default, results are saved in the current working directory in a folder
 called `.globalcache/`. The default can be changed using:
-	
-	>>> gcache.init(globals(), save_dir='/p/folder1/path_to_new_directory')
-	
-
+    
+    >>> gcache.init(globals(), save_dir='/p/folder1/path_to_new_directory')
+    
+    
 Caching an if-block
 --------------------
 
@@ -99,27 +99,27 @@ Store a parameter with an if block:
     >>>     out = expensive_function()
     >>>     var1.set(out)
     >>> out = var1.get()
-	
-Results can be cached dependent on the change of other variables:
 
-	>>> var2 = gcache.var('param2', args=(args1, args2),
-	>>>                   kwargs=dict2, save=False, size_limit=None)
-	>>> if var2.not_cached:
-	>>>     out = expensive_function()
-	>>>	    var2.set(out)
-	>>> out = var2.get()
-	
+Results can be cached dependent on the change of other variables:
+    
+    >>> var2 = gcache.var('param2', args=(args1, args2),
+    >>>                   kwargs=dict2, save=False, size_limit=None)
+    >>> if var2.not_cached:
+    >>>     out = expensive_function()
+    >>>     var2.set(out)
+    >>> out = var2.get()
+    
 
 Disabling the globalcache
 -------------------------
 
 Force disable the globalcache:
 
-	>>> import globalcache
-	>>> globalcache.Settings.disable = True
-	
-	
-	
+    >>> import globalcache
+    >>> globalcache.Settings.disable = True
+    
+    
+    
 Dealing with Unhashable Arguments
 ---------------------------------
 If your function relies on unhashable arguments, there are various
