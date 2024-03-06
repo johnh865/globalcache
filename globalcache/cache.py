@@ -174,8 +174,9 @@ class Cache:
         logger.debug('Creating cache %s', self)
         
         if name is None:
-            name = DEFAULT_GLOBAL_CACHE_NAME        
-        
+            name = DEFAULT_GLOBAL_CACHE_NAME    
+            
+        self.cdict = {}
         self.size_limit = size_limit
         self.save_dir = save_dir
         self._function_caches = set()
@@ -230,6 +231,10 @@ class Cache:
         >>> cache.set_globals(globals())
         
         """
+        try:
+            self.is_main = g['__name__'] == '__main__'
+        except KeyError:
+            self.is_main = False
         
         if name is None:
             name = self.name
@@ -251,29 +256,20 @@ class Cache:
             self.cdict = cache.cdict
             # breakpoint()
             # self._function_caches.update(cache._function_caches)
+        elif self.is_main:
+            logger.debug('Re-initializating cdict from __main__')
+            self.cdict = {}            
             
         else:
             logger.debug('No cache dict %s found in globals()', name)
-            self.cdict = {}
+            pass
             # self._function_caches = set()      
-            
-            
-        
-
-            
-            
+                        
         self._function_cache_names  = {}
             
         # Make sure to set self into globals()
         g[name] = self        
-        
-
-
         self._globals = g
-        try:
-            self.is_main = g['__name__'] == '__main__'
-        except KeyError:
-            self.is_main = False
             
         return
     
