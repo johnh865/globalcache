@@ -1,22 +1,21 @@
 # -*- coding: utf-8 -*-
 
+
+
+import logging
+
+logging.basicConfig()
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
 from globalcache import gcache
 
+gcache.init(globals())
+
+from tests.test_project.module1 import testfun1
 
 
-
-@gcache.decorate(size_limit=10)
-def expensive_func10(i: int):
-    """Dummy function, prints input."""
-    print(i)
-    return i
-
-
-
-@gcache.decorate
-class Jimmy:
-    def __init__(self, x: int):
-        self.x = x
-        print('hello')
-       
-        
+out = testfun1(12)
+out = testfun1(12)
+out = testfun1(12)
+out = testfun1(13)

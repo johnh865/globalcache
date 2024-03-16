@@ -476,17 +476,35 @@ def test_run_in_spyder():
         runfile(filename=path, current_namespace=False)
     
     hello_count = sum(1 for line in output1 if line == 'hello')
+    
     assert hello_count == 3
     
     
     with Capturing() as output2:
         
         runfile(filename=path, current_namespace=True)
-        
+    
     for line in output2:
         assert line != 'hello'
     
         
+def test_importing():
+    """Test importing of  module and mixing of order when gcache is initialized."""
+    import spydercustomize
+    from spydercustomize import runfile
+    
+    fname = 'test_import2.py'
+    folder = os.path.dirname(__file__)
+    path = os.path.join(folder, fname)
+    with Capturing() as output1:
+        runfile(filename=path, current_namespace=False)
+    count = sum(1 for line in output1 if line == 'testfun1')
+    assert count == 2
+    
+    with Capturing() as output2:
+        runfile(filename=path, current_namespace=True)
+    count = sum(1 for line in output2 if line == 'testfun1')
+    assert count == 0
     
     
 # %% main
@@ -519,5 +537,7 @@ if __name__ == '__main__':
     test_wraps()
     
     test_run_in_spyder()
+    test_importing()
+    
         
     

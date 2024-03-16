@@ -179,6 +179,8 @@ class Cache:
         self.cdict = {}
         self.size_limit = size_limit
         self.save_dir = save_dir
+        self.is_main = False
+        # self._is_main_founded = False
         self._function_caches = set()
         self.set_globals(g, name, size_limit, save_dir)
         
@@ -202,10 +204,32 @@ class Cache:
             size_limit: Union[int, None] = None,
             save_dir: str='',
             ):
+        """Call this to initialize gcache for each script it is imported into.
+        
+        >>> from globalcache import gcache
+        >>> gcache.init(globals())
+        
+        Parameters
+        ----------
+        g : dict
+            Input globals() here.
+        name : Union[str, None], optional
+            Name of cache's dictionary key in globals().
+            The default is None and will take the name '__GLOBAL_CACHE__'.
+        size_limit : Union[int, None], optional
+            Default max number of items to store in cache dictionary. The default is None.
+        save_dir : str, optional
+            Directory path to save data. By default this path is '.globalcache'.
+
+        Returns
+        -------
+        None.
+
+        """
         self.set_globals(
             g=g, name=name,
             size_limit=size_limit, save_dir=save_dir)
-    
+        
     
     def set_globals(
             self, 
@@ -216,54 +240,48 @@ class Cache:
             save_dir: str='',
             ):
         """Use this method to re-set the globals() dict for the cache.
-        This is needed to enable the cache from another script. 
         
-        Example
-        -------
-        module1.py
-        
-        >>> from globalcache import Cache
-        >>> cache = Cache(globals())
-        
-        main.py
-        
-        >>> from module1 import cache
-        >>> cache.set_globals(globals())
-        
+        Initialization are probably a random mix of outside of __main__ and not. 
         """
-        try:
-            self.is_main = g['__name__'] == '__main__'
-        except KeyError:
-            self.is_main = False
         
+        # Detect if initialization is from __main__
+        if '__name__' in g:
+            if g['__name__'] == '__main__':
+                self.is_main = True
+                
+        # Try to find the cache in globals()
+        if self.name in g:
+            logger.debug('Cache dict %s found in globals()', self.name)
+            cdict1 = g[self.name].cdict
+            # Merge global dictionaries together.
+            # breakpoint()
+            self.cdict.update(cdict1)      
+            
+            
         if name is None:
             name = self.name
         self.name = name
+        
         self.size_limit = size_limit
         self.save_dir = save_dir
         
-        # if size_limit is None:
-        #     size_limit = Settings.SIZE_LIMIT
-        # if save_dir == '':
-        #     save_dir = Settings.SAVE_DIR
-        
-        logger.debug('Set globals for %r', self)
-        
-        if name in g:
-            logger.debug('Cache dict %s found in globals()', name)
-            cache : Cache
-            cache = g[name]
-            self.cdict = cache.cdict
-            # breakpoint()
-            # self._function_caches.update(cache._function_caches)
-        elif self.is_main:
-            logger.debug('Re-initializating cdict from __main__')
-            self.cdict = {}            
             
-        else:
-            logger.debug('No cache dict %s found in globals()', name)
-            pass
-            # self._function_caches = set()      
+
+        
+        # logger.debug('Set globals for %r', self)
+        
+        # if name in g:
+        #     logger.debug('Cache dict %s found in globals()', name)
+        #     cache : Cache
+        #     cache = g[name]
+        #     self.cdict = cache.cdict
+        # elif self.is_main:
+        #     logger.debug('Re-initializating cdict from __main__')
+        #     self.cdict = {}            
+            
+        # else:
+        #     logger.debug('No cache dict %s found in globals()', name)
+        #     pass
                         
         self._function_cache_names  = {}
             
@@ -439,6 +457,19 @@ class Cache:
     @property
     def function_caches(self) -> list['FunctionCache']:
         return list(self._function_caches)
+    
+    
+    def print_status(self):
+        print('globals() is initialized in main scope:', self.is_main)
+        print('')
+        print('Cached functions list:')
+        for fcache in self.function_caches:
+            print(fcache)
+            print('Module = ', fcache.module)
+            print('Cached entries = ', len(fcache.fcache))
+            print('')
+        print('')            
+            
     
         
 def get_name(fn : Callable) -> str:
@@ -630,10 +661,10 @@ class FunctionCache:
             return self.fn(*args, **kwargs)
         
         # globalcache will not work if globals() are not from __main__ script
-        if not self._cache.is_main:
-            warnings.warn('gcache has not yet been initialized with globals(). Cache is disabled')
-            logger.debug('globals() not set. Disabling cache.')
-            return self.fn(*args, **kwargs)
+        # if not self._cache.is_main:
+        #     logger.info('gcache has not yet been initialized with globals(). Cache is disabled')
+        #     logger.debug('globals() not set. Disabling cache.')
+        #     return self.fn(*args, **kwargs)
             
         
         # Initialize file persistence

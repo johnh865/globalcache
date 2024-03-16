@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from globalcache import gcache
-from tests.test_import2 import Jimmy, expensive_func10
+from tests.test_import import Jimmy
 # 
 gcache.init(globals())
 # gcache.reset()
@@ -11,7 +11,6 @@ def expensive_func11(i: int):
     """Dummy function, prints input."""
     print(i)
     return i
-
 
 
 Jimmy(1)
