@@ -91,4 +91,5 @@ Force disable the globalcache:
 
 
 
-from globalcache.cache import Cache, Settings, CacheError, gcache
+from globalcache.cache import (
+    Cache, Settings, CacheError, gcache, reset, delete_shelves)
