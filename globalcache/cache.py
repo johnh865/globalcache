@@ -11,8 +11,12 @@ import shutil
 from functools import cached_property
 import warnings
 
-logger = logging.getLogger(__name__)
+import queue
+import threading 
 
+
+logger = logging.getLogger(__name__)
+logger.debug('IMPORTING CACHE.PY AT %s', __name__)
 
 DEFAULT_GLOBAL_CACHE_NAME = '__GLOBAL_CACHE__'
 DEFAULT_SIZE_LIMIT = None
@@ -342,7 +346,7 @@ class Cache:
             args: tuple=(),
             kwargs: dict={}, 
             size_limit=None,
-            save: bool = False,
+            write: bool = False,
             module: str = '',
             ) -> 'CacheVar':
         """Create cached variable. 
@@ -357,7 +361,7 @@ class Cache:
             Hashable kwargs for result identification. The default is None.
         size_limit : int, optional
             Max size of cached results. The default is None.
-        save : bool, optional
+        write : bool, optional
             True to save cache to disk. Default is False. 
         module : str
             Rename the module label. Default is ''.
@@ -376,7 +380,7 @@ class Cache:
             size_limit = self.size_limit
         logger.debug('Creating CacheVar %s', name)
         return CacheVar(self, name=name, args=args, kwargs=kwargs,
-                        size_limit=size_limit, save=save, module=module)
+                        size_limit=size_limit, write=write, module=module)
             
         
     
@@ -384,7 +388,8 @@ class Cache:
                  fn : Union[None, Callable] = None,
                  size_limit: Union[None, int] = None, 
                  reset: bool = False,
-                 save: bool = False,
+                 write: bool = False,
+                 read: bool = True,
                  name: str = '',
                  ) -> Callable:
         """Decorate an expensive function to cache the result. 
@@ -417,7 +422,8 @@ class Cache:
                 fn, 
                 size_limit=size_limit,
                 reset=False,
-                save=False,
+                write=False,
+                read=True,
                 )
         else:
             
@@ -426,8 +432,9 @@ class Cache:
                     fn, 
                     size_limit=size_limit,
                     reset=reset,
-                    save=save,
+                    write=write,
                     name=name,
+                    read=read
                     )
         return func
         
@@ -435,14 +442,17 @@ class Cache:
     def _sub_decorate(self, fn: Callable, 
                       size_limit: int,
                       reset : bool,
-                      save : bool,
+                      write : bool,
+                      read: bool,
                       name: str = '',
+                      
                       ):
-        logger.debug('Initializing function %s', fn)
+        logger.debug('Decorating function %s', fn)
         fn_cache = FunctionCache(self,
                                  fn=fn,
                                  size_limit=size_limit,
-                                 save=save, 
+                                 write=write, 
+                                 read=read,
                                  name=name
                                  )
         
@@ -536,9 +546,12 @@ def get_name(fn : Callable) -> str:
             # parent_name = fn.__name__
             parent_name = fn.__qualname__
             name = parent_name + '.' + name
-            breakpoint()
         except AttributeError:
             break
+    # breakpoint()
+    
+    # Get rid of name <> such as 'test_reset_cache.<locals>.expensive_func'
+    name = name.replace('<', '').replace('>', '')
     return name
         
         
@@ -575,7 +588,7 @@ class FunctionCache:
         Function to cache.
     size_limit : int
         Maximum number of values to store.
-    save : bool
+    write : bool
         Save output to file? True for yes.
     name : str, optional
         Name of function. The default is '' and uses inspect to get the name.
@@ -602,21 +615,28 @@ class FunctionCache:
     def __init__(self, cache: Cache,
                  fn : Callable,
                  size_limit: int,
-                 save: bool,
+                 write: bool,
                  name: str = '',
                  module: str = '',
+                 read: bool = True
                  ):
-
         # Initialize deafault settings
         if module == '':
             module = inspect.getsourcefile(fn)
         if name == '':
             name = get_name(fn)       
+        if write: 
+            read = True
+            
+            
+        logger.debug('Initiatlizing FunctionCache %s', name)
+
         size_limit = get_size_limit(size_limit)
         
         self.size_limit = size_limit
         self.name = name
-        self.save = save
+        self.write = write
+        self.read = read
         self.module = module        
         self._cache = cache
         self.fn = fn
@@ -626,8 +646,8 @@ class FunctionCache:
         self.reinit_dicts()
         
         # Read shelve data        
-        self.shelve_name = cache.get_module_short_name(module)
-            
+        self.shelve_name = cache.get_module_short_name(module) + '-' + name
+
         # Track definitions to prevent redefinition.
         function_list = cache._function_cache_names.setdefault(module, [])
 
@@ -635,6 +655,12 @@ class FunctionCache:
             raise CacheError(f'{name} cannot be redefined for module {module}')
         else:
             function_list.append(name)
+            
+        # Enable multiprocessing support, queue calls. 
+        # logger.debug('Creating queue for %s', self.name)
+        # self.queue = queue.Queue()
+        # logger.debug('Creating thread')
+        # threading.Thread(target=self._shelve_worker1, daemon=True).start()
             
             
     def __repr__(self):
@@ -661,10 +687,6 @@ class FunctionCache:
             LimitDict(_size_limit=self.size_limit)
             )
         
-        
-        
-        
-            
             
     def is_cached(self, *args, **kwargs) -> bool:
         """Check whether given arguments for function has cached value."""
@@ -678,15 +700,33 @@ class FunctionCache:
         
         if key in self.fcache:
             return True
-        if self.save:
+        
+        if self.read:
             shelve_key = str((self.name, args, kwargs))
             if self.is_shelved(shelve_key):
                 return True
             
         return False
-        
     
+    
+    def _args_to_dict_key(self, args, kwargs):
+        """Convert function arguments to a cache dictionary key."""
+        if kwargs is not None:
+            kwargs2 = frozenset(kwargs.items())
+        else:
+            kwargs2 = None
+            
+        key = (args, kwargs2)
+        return repr(key)
+    
+    
+    # def _args_to_shelve_key(self, args, kwargs):
+    #     # shelve_key = repr((self.name, args, kwargs))
+    #     # shelve_
         
+    #     return shelve_key
+    
+    
     def __call__(self, *args, **kwargs):
         """Call the function with caching.
 
@@ -706,10 +746,10 @@ class FunctionCache:
         -------
         out :
             Function `fn` output.
-
         """
         
         # Reun as-is if caching is disabled by environ variable. 
+        logger.debug('Calling %s', self.name)
         name = self.name
         self.reinit_dicts()
         
@@ -727,42 +767,98 @@ class FunctionCache:
         # Initialize file persistence
         if self._is_first_run:
             self._is_first_run = False
-            if self.save:
+            if self.write or self.read:
                 logger.debug('Initializing shelve for %s', name)
                 self.shelve_init()
                 
             
-        if kwargs is not None:
-            kwargs2 = frozenset(kwargs.items())
-        else:
-            kwargs2 = None
+        # if kwargs is not None:
+        #     kwargs2 = frozenset(kwargs.items())
+        # else:
+        #     kwargs2 = None
             
-        key = (args, kwargs2)
+        # key = (args, kwargs2)
+        
+        key = self._args_to_dict_key(args, kwargs)
+        
+        # Get output from cache
         try:
             try:
                 output = self.fcache[key]
+                logger.debug('Result found in fcache.')
             except TypeError:
                 raise CacheError(f'Arguments {args} and {kwargs} for function {self.name} must be hashable.')
                 
             logger.debug('Retrieved key=%s from fcache %s', key, name)
             return output
+        
+        # Do this if key not found in cache. 
         except KeyError:
             
-            if self.save:
-                shelve_key = str((self.name, args, kwargs))
-                try:
-                    output = self.shelve_read(key, shelve_key)
-                    logger.debug('Read key=%s from shelve for %s', key, name)
-                except KeyError:
-                    logger.debug('key=%s not found in shelve cache. Running function %s', key, name)
-                    output = self.fn(*args, **kwargs)
-                    self.shelve_save(shelve_key, output)
+            # shelve_key = str((self.name, args, kwargs))
+            # shelve_key = self._args_to_shelve_key(args, kwargs)
+            # breakpoint()
+            shelve_key = key
+            if self.read and self.is_shelved(shelve_key):
+                output =  self._shelve_read(key, shelve_key)
+                logger.debug('Read key=%s from shelve for %s', key, name)
+                self.fcache[key] = output
+                return output
+                            
+                # shelve_key = str((self.name, args, kwargs))
+                # try:
+                #     output = self.shelve_read(key, shelve_key)
+                #     logger.debug('Read key=%s from shelve for %s', key, name)
+                # except KeyError:
+                #     logger.debug('key=%s not found in shelve cache. Running function %s', key, name)
+                #     output = self.fn(*args, **kwargs)
+                #     self.shelve_save(shelve_key, output)
             else:
-                logger.debug('key=%s not found in cache. Running function %s', key, name)
+                logger.debug('key=%s not found in shelve cache. Running function %s', key, name)
                 output = self.fn(*args, **kwargs)
-            
-            self.fcache[key] = output
+                self.fcache[key] = output
+                
+                if self.write:
+                    self._shelve_save(shelve_key, output)
+                    logger.debug('Result saved to file')           
+                    
             return output
+        
+        
+    def _get_from_shelve(self, key, args, kwargs):
+        name = self.name
+        
+        shelve_key = str((name, args, kwargs))
+        try:
+            output = self._shelve_read(key, shelve_key)
+        except KeyError:
+            output = self.fn(*args, **kwargs)
+            self._shelve_save(shelve_key, output)
+            self.fcache[key] = output
+        return output
+    
+    
+    # def _shelve_worker1(self):
+    #     logger.debug('Starting worker1')
+    #     while True:
+    #         logger.debug('Getting from queue....')
+    #         item = self.queue.get()
+    #         logger.debug('worker1 retrieving item, processing')
+    #         key, args, kwargs = item
+    #         output = self._get_from_shelve(key, args, kwargs)            
+    #         # print(f'Working on {item}')
+    #         # output = item * 2
+    #         # d[item] = output
+    #         self.queue.task_done()
+
+    
+    # def shelve_get(self, key, args, kwargs):
+    #     logger.debug('Put key %s into sheleve queue.', key)
+    #     self.queue.put((key, args, kwargs))
+    #     logger.debug('Joining...')
+    #     self.queue.join()
+    #     return self.fcache[key]
+        
                 
     
     def shelve_init(self):
@@ -785,14 +881,17 @@ class FunctionCache:
         return path
     
     
-    def shelve_save(self, shelve_key: str, output: Any):
+    def _shelve_save(self, 
+                     shelve_key: str,
+                     output: Any):
         """Save cache variable to shelve"""
-
+        
+        
         with shelve.open(self.shelve_path) as db:
             db[shelve_key] = output
             
             
-    def shelve_read(self, key: tuple, shelve_key: str) -> Any:
+    def _shelve_read(self, key: tuple, shelve_key: str) -> Any:
         """Read from shelve."""
         with shelve.open(self.shelve_path) as db:
             out =  db[shelve_key]
@@ -809,7 +908,70 @@ class FunctionCache:
         """Delete globals() cache."""
         self.fcache.clear()
         
+        
+    def save(self):
+        """Write all cached output to file."""
+        for key, value in self.fcache.items():
+            # shelve_key = self._args_to_shel
+            self._shelve_save(key, value)
+            logger.debug('Saving to shelve for %s, %s', key, self.name)
+
+
+# class ShelveProcessor:
+#     """THIS IS BROKEN"""
+#     """Read and write to shelve with multiprocessing / threading support."""
+#     def __init__(self, path: str, fcache: dict):
+#         self.queue = queue.Queue()
+#         self.path = path
+#         self.fcache = fcache
+#         self.db = shelve.open(self.path, 'a+')
+        
+#         threading.Thread(target=self._worker, daemon=True).start()
+
+
+
+#         # self.function_cache = function_cache
+        
+        
     
+#     def _read(self, key: tuple, shelve_key: str) -> Any:
+#         out = self.db[shelve_key]
+#         self.fcache[key] = out
+#         return out
+    
+    
+#     def _write(self, shelve_key: str, output: Any):
+#         self.db[shelve_key] = output
+        
+        
+    
+    
+#     def _worker(self):
+#         while True:
+#             args, kwargs = self.queue.get()
+#             output = self._call1(*args, **kwargs)
+            
+#             print(f'Working on {item}')
+#             print(f'Finished {item}')
+#             # output = item * 2
+#             # d[item] = output
+#             q.task_done()
+            
+            
+#     def worker(self, ):
+#         while True:
+#             mode, data = self.queue.get()
+#             if mode == 'r':
+#                 key, shelve_key = data
+#                 return self._read(key, shelve_key)
+                
+#                 pass
+            
+#             elif mode == 'w':
+#                 pass
+            
+            
+            
     
 class CacheVar:
     """Cache variables. Usually use Cache.var(...) to create this.
@@ -848,7 +1010,7 @@ class CacheVar:
                  args : tuple,
                  kwargs: dict,
                  size_limit: int,
-                 save: bool,
+                 write: bool,
                  module: str = '',
                  ):
 
@@ -857,7 +1019,7 @@ class CacheVar:
         self.name = name
         self.args = args
         self.kwargs = kwargs
-        self.save = save
+        self.write = write
 
         def fn(*args, **kwargs):
             raise CacheError('This dummy function should not ever be called.')
@@ -869,7 +1031,7 @@ class CacheVar:
             cache = cache, 
             fn = fn,
             size_limit = size_limit,
-            save = save, name = name, module = module
+            write = write, name = name, module = module
             )
     
     def set(self, output: Any):
@@ -897,181 +1059,6 @@ class CacheVar:
         return self.fn_cache.fcache[self.key]
 
         
-        
-
-                 
-class __CacheVarOLD:
-    """Create dictionary structure for cache variable.
-    
-    Parameters
-    ----------
-    cache : Cache
-        Cache.
-    module : str
-        Python module name.
-    name : str
-        Python function name.
-    args : tuple
-        Python function arguments.
-    kwargs : dict
-        Python function keyword arguments.
-    size_limit : int
-        Maximum cache size.
-    save : bool, optional
-        Save results to file. The default is False.
-    
-    Attributes
-    ----------
-    module_dict : dict[str, dict]
-        Cache for a Python module
-        
-    fcache : dict[str, LimitDict]
-        Cache for a function in the module.
-        
-    key : tuple
-        Function arguments used for fcache key.
-        
-    name : str
-        Name of function. 
-        
-        
-    """
-    
-    module_dict : dict[str, dict]
-    
-    def __init__(self, 
-                 cache: Cache, 
-                 module: str,
-                 name: str, 
-                 args: tuple, 
-                 kwargs: dict,
-                 size_limit: int,
-                 save: bool = False,
-                 reset: bool = False,
-                 ):
-        
-        # print('CacheVar:', module, name)
-        # Get module-level dictionary
-        self.module_dict = cache.cdict.setdefault(module, {})
-        
-        # Get argument-value dictionary
-        self.fcache = self.module_dict.setdefault(
-            name,
-            LimitDict(_size_limit=size_limit)
-            )
-        
-        if kwargs is not None:
-            kwargs = frozenset(kwargs.items())
-        
-        self.key = (args, kwargs)
-        self.name = name
-        self._cache = cache
-        
-        
-        module_hash = hash(module)
-        module_fname = splitext(basename(module))[0]
-        # self.shelve_name = self.
-        self.shelve_key = str((name, args, kwargs))
-        self.save = save
-        
-        if reset:
-            self.reset()
-            
-        if save:
-            try:
-                self.shelve_read()
-            except FileNotFoundError:
-                logger.debug('No file found in shelve for %s %s %s', module, name, self.key)
-            except KeyError:
-                logger.debug('No key found in shelve for %s %s %s', module, name, self.key)
-            
-        
-        
-    def get(self) -> CacheValue:
-        """Retrieve cached value if it exists.
-        
-        Raises
-        ------
-        ValueError
-            Raised if cache has not yet been set.
-        """
-        key = self.key
-        try:
-            logger.debug('Retrieving %s %s from cache', self.name, key)
-            return self.fcache[key]
-        
-        except KeyError:
-            raise ValueError('Variable not yet set.')
-            
-            
-    @property
-    def is_cached(self) -> bool:
-        """Check whether a value has been cached."""
-        if Settings.DISABLE:
-            return False
-        # breakpoint()
-        return self.key in self.fcache
-    
-    
-    @property
-    def not_cached(self) -> bool:
-        """Check that a value is not cached."""
-        if Settings.DISABLE:
-            return True
-        # breakpoint()
-
-        return self.key not in self.fcache
-    
-    
-    def set(self, data):
-        """Set data into cache.
-        
-        Returns
-        -------
-        data : 
-            Return input argument.
-        """
-        logger.debug('Saving %s %s into cache', self.name, self.key)
-        self.fcache[self.key] = data
-        if self.save:
-            self.shelve_save()
-            
-        return data
-    
-    def reset(self):
-        """Reset cache."""
-        if self.key in self.fcache:
-            del self.fcache[self.key]
-            
-            
-    def shelve_save(self):
-        """Save cache variable to shelve"""
-        dir1 = self._cache.save_dir
-        # dir1 = os.path.dirname(path)
-        os.makedirs(dir1, exist_ok=True)
-        path = join(dir1, self.shelve_name)
-        with shelve.open(path,) as db:
-            db[self.shelve_key] = self.get()
-            
-            
-    def shelve_read(self):
-        """Read from shelve."""
-        dir1 = self._cache.save_dir
-        path = join(dir1, self.shelve_name)
-        with shelve.open(path) as db:
-            out =  db[self.shelve_key]
-            self.fcache[self.key] = out
-        return out
-    
-        
-        
-        
-    def __bool__(self):
-        """Return self.is_cached."""
-        
-        return self.is_cached
-        
-    
 # %% Create a cache here 
 
 

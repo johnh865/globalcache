@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "globalcache"
-version = "0.2.0"
+version = "0.2.2"
 authors = [
   { name="John Huang", email="johnzilla76@gmail.com" },
 ]

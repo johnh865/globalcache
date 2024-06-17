@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from globalcache import gcache
-from tests.test_import import Jimmy
+from tests.example_import import Jimmy
 # 
 gcache.init(globals())
 # gcache.reset()

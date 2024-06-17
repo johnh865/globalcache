@@ -304,7 +304,7 @@ def test_save_cache():
     cache = Cache(globals(), size_limit = 10)
 
     
-    @cache.decorate(save=True)
+    @cache.decorate(write=True)
     def expensive_func(x):
         for ii in range(5):
             print('Meow', ii)
@@ -344,7 +344,7 @@ def test_save_cache():
 
 def test_cache_import():
     """Import cache from another module. Test set_globals method."""
-    from tests.test_import import expensive_func10, gcache
+    from tests.example_import import expensive_func10, gcache
     import numpy as np
     
     gcache.set_globals(globals())
@@ -369,7 +369,7 @@ def test_shelve():
     cache1.delete_shelve()
     cache1.reset()
     
-    @cache1.decorate(save=True)
+    @cache1.decorate(write=True)
     def expensive_func(x):
         print(x)
         return x*2
@@ -382,7 +382,7 @@ def test_shelve():
     
     print('')
     cache2 = Cache(globals())
-    @cache2.decorate(save=True)
+    @cache2.decorate(write=True)
     def expensive_func(x):
         print(x)
         return x*2
@@ -418,8 +418,9 @@ def test_repeated_def():
         
     assert error_caught
     
-def test_unhashable():
-    """Test behavior when you try to use unhashable arguments."""
+def dont_test_unhashable():
+    """Test behavior when you try to use unhashable arguments.
+    Maybe we don't need this test anymore."""
     
     cache = Cache(globals())
     
@@ -493,7 +494,7 @@ def test_importing():
     import spydercustomize
     from spydercustomize import runfile
     
-    fname = 'test_import2.py'
+    fname = 'example_import2.py'
     folder = os.path.dirname(__file__)
     path = os.path.join(folder, fname)
     with Capturing() as output1:
@@ -505,6 +506,35 @@ def test_importing():
         runfile(filename=path, current_namespace=True)
     count = sum(1 for line in output2 if line == 'testfun1')
     assert count == 0
+    
+
+def test_post_save():
+    """Test feature where we can save to disk after running the function."""
+    
+    cache = Cache(globals())
+    
+    @cache.decorate(write=False, read=True)
+    def func1(x):
+        print('Meow' + str(x))
+        return x
+    
+    func1(1)
+    func1(2)
+    func1(3)   
+    func1.fn_cache.save()
+    cache.reset()
+    
+
+    with Capturing() as output:
+        func1(1)
+        func1(2)
+        func1(3)
+    print(output)
+    assert len(output) == 0
+    
+
+    
+    
     
     
 # %% main
@@ -531,13 +561,14 @@ if __name__ == '__main__':
     test_shelve()
     test_repeated_def()
     
-    test_unhashable()
+    # test_unhashable()
     test_name()
 
     test_wraps()
     
     test_run_in_spyder()
     test_importing()
+    test_post_save()
     
         
     

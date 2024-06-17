@@ -13,7 +13,8 @@ setup(
        # version='0.1.5',   # Jan 13, 2024  update
         # version='0.1.6',   # Feb 15, 2024  update
         # version='0.2.0',   # Feb 22, 2024  update
-        version='0.2.1',   # Apr 8, 2024  update
+        # version='0.2.1',   # Apr 8, 2024  update
+        version='0.2.2',   # Jun 16, 2024  update
       packages=find_packages(
           include=["globalcache*"]
           ),

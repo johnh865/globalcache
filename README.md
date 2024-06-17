@@ -24,13 +24,11 @@ Or when Spyder calls `spydercustomize.runfile`, set
 Usage
 -----
 
-Initialize the cache:
-    
-    >>> from globalcache import gcache
-    >>> gcache.init(globals())
-    
 To initialize the cache, you must input globals() into the Cache. 
-gache.init(globals()) will create a dictionary in globals() to store the cache. 
+    
+    >>> from globalcache import Cache
+    >>> gcache = Cache(globals())
+    
 
 Use the cache to decorate an expensive function and skip the calculation in subsequent runs.
 
@@ -135,5 +133,22 @@ arguments with hashable parameters. For example:
     >>>     return func1(args) 
     
 Or you can use an if-block cache. 
+
+Caching a class method
+----------------------
+In order to cache a class method, we must make sure the base class has 
+implemented `__repr__` special method. For example to 
+cache a method `my_method`:
+
+    >>> class MyClass1:
+    >>>    def __init__(self, ...):
+    >>>       ...
+    >>>
+    >>>    def __repr__(self):
+    >>>       ...
+    >>>
+    >>>    @cache.decorate
+    >>>    def my_method(self, args):
+    >>>       ...
 
 
