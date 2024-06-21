@@ -85,6 +85,24 @@ called `.globalcache/`. The default can be changed using:
     >>> gcache.init(globals(), save_dir='/p/folder1/path_to_new_directory')
     
     
+    
+Saving to Disk using Multiprocessing
+    
+Saving results to disk will not work correctly if multiprocessing is used. 
+However, you can save the results after the computation is finished:
+
+    >>> from multiprocessing import Pool
+    >>> @gcache.decorate
+    >>> def func2(x, y):
+    >>>     return x + y
+    >>> 
+    >>> args = [(1,2), (3,4), (5,6)]
+    >>> with Pool(2) as p:
+    >>>     output = p.starmap(func2, args)
+    >>> func2.fn_cache.save()
+        
+    
+    
 Caching an if-block
 --------------------
 

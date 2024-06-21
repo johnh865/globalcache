@@ -465,11 +465,11 @@ def test_wraps():
 
 
 def test_run_in_spyder():
-    """Run the test2.py module and make sure cache works over multiple runs."""
+    """Run the example_module.py module and make sure cache works over multiple runs."""
     import spydercustomize
     from spydercustomize import runfile
     
-    fname = 'test2.py'
+    fname = 'example_module.py'
     folder = os.path.dirname(__file__)
     path = os.path.join(folder, fname)
     

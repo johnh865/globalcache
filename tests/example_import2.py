@@ -12,7 +12,7 @@ from globalcache import gcache
 
 gcache.init(globals())
 
-from tests.test_project.module1 import testfun1
+from tests.example_project.module1 import testfun1
 
 
 out = testfun1(12)

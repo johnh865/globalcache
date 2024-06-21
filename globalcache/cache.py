@@ -227,6 +227,14 @@ def delete_shelves():
     
 def set_global_size_limit(size_limit: int):
     global_singleton.set_size_limit(size_limit)
+    
+    
+def print_status():
+    dict1 = global_singleton.caches
+    
+    for (key, cache) in dict1.items():
+        print(key, cache)
+        
 
 
 class Cache:
@@ -264,8 +272,8 @@ class Cache:
         # self.cdict = {}
         self.size_limit = size_limit
         self.save_dir = save_dir
-        self.is_main = False
-        self._is_main_found = False
+        # self.is_main = False
+        # self._is_main_found = False
         self._function_caches = set()
         self.set_globals(g, name, size_limit, save_dir)
         
@@ -327,8 +335,7 @@ class Cache:
         """Use this method to re-set the globals() dict for the cache.
         
         Initialization are probably a random mix of outside of __main__ and not. 
-        """
-        
+        """        
         self.global_singleton = global_singleton.update(g, name=name)
         module_name = g['__name__']
         self.global_singleton.caches[module_name] = self
@@ -517,13 +524,13 @@ class Cache:
     
     
     def print_status(self):
-        print('globals() is initialized in main scope:', self.is_main)
+        # print('globals() is initialized in main scope:', self.is_main)
         print('')
         print('Cached functions list:')
         for fcache in self.function_caches:
             print(fcache)
             print('Module = ', fcache.module)
-            print('Cached entries = ', len(fcache.fcache))
+            print(' # Cached entries = ', len(fcache.fcache))
             print('')
         print('')       
         
