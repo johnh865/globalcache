@@ -922,7 +922,16 @@ class FunctionCache:
             # shelve_key = self._args_to_shel
             self._shelve_save(key, value)
             logger.debug('Saving to shelve for %s, %s', key, self.name)
-
+            
+            
+    def save_changed(self):
+        for key, value in self.fcache.items():
+            if self.is_shelved(key):
+                logger.debug('Key %s already found in shelve', key)
+                pass
+            else:
+                self._shelve_save(key, value)
+                logger.debug('Saving to shelve for %s, %s', key, self.name)
 
 # class ShelveProcessor:
 #     """THIS IS BROKEN"""

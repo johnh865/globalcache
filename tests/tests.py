@@ -522,6 +522,7 @@ def test_post_save():
     func1(2)
     func1(3)   
     func1.fn_cache.save()
+    func1.fn_cache.save_changed()
     cache.reset()
     
 
@@ -533,9 +534,48 @@ def test_post_save():
     assert len(output) == 0
     
 
+def test_class_arg():
+    
+    cache = Cache(globals())
+    
+    class Class1:
+        def __init__(self, x: int):
+            self.x = x
+            self.y = [x, x, x]
+            
+            
+        def method1(self):
+            return self.x**2
+        
+        
+        def __repr__(self):
+            return 'Class1' + str(self.x)
+            
+    @cache.decorate
+    def fun1(x, c: Class1 = None):
+        print('fun1')
+        if c is None:
+            return x + 10
+            
+        return x + c.x + 10
     
     
     
+    c1 = Class1(1)
+    y1 = fun1(2, c=c1)
+    y1 = fun1(2, c=c1)
+    # breakpoint()
+    return
+
+
+    
+    
+    
+    
+    
+    
+    
+
     
 # %% main
 if __name__ == '__main__':
@@ -569,6 +609,7 @@ if __name__ == '__main__':
     test_run_in_spyder()
     test_importing()
     test_post_save()
+    test_class_arg()
     
         
     
